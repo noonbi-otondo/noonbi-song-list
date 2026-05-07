@@ -127,10 +127,21 @@ export default function App() {
       },
       events: {
         onReady: (event) => {
-          setDuration(event.target.getDuration() || 0);
-          setPlayerState("재생 준비 완료");
-          event.target.playVideo();
-        },
+  const total = event.target.getDuration() || 0;
+
+  setDuration(total);
+  setPlayerState("재생 준비 완료");
+
+  if (currentSong?.startedAt) {
+    const elapsed = (Date.now() - currentSong.startedAt) / 1000;
+
+    if (elapsed > 0 && elapsed < total) {
+      event.target.seekTo(elapsed, true);
+    }
+  }
+
+  event.target.playVideo();
+},
         onStateChange: (event) => {
           const YTState = window.YT.PlayerState;
           if (event.data === YTState.PLAYING) setPlayerState("재생 중");
