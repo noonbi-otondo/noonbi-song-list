@@ -114,11 +114,33 @@ export default function App() {
 
   useEffect(() => {
     if (!youtubeEnabled || !playerReady || !currentSong || !currentSong.videoId || !playerDivRef.current) return;
+    if (playerRef.current && currentSong?.videoId) {
+  const currentVideoData = playerRef.current.getVideoData?.();
+  const currentVideoId = currentVideoData?.video_id;
 
-    if (playerRef.current && playerRef.current.destroy) {
-      playerRef.current.destroy();
-    }
+  if (currentVideoId !== currentSong.videoId) {
+    playerRef.current.loadVideoById(currentSong.videoId);
+  }
 
+  if (currentSong?.startedAt) {
+    const elapsed = (Date.now() - currentSong.startedAt) / 1000;
+
+    setTimeout(() => {
+      try {
+        const now = playerRef.current.getCurrentTime?.() || 0;
+        const diff = Math.abs(now - elapsed);
+
+        if (diff > 2) {
+          playerRef.current.seekTo(elapsed, true);
+        }
+
+        playerRef.current.playVideo();
+      } catch {}
+    }, 500);
+  }
+
+  return;
+}
     playerRef.current = new window.YT.Player(playerDivRef.current, {
       videoId: currentSong.videoId,
       playerVars: {
@@ -160,12 +182,7 @@ export default function App() {
     setCurrentTime(0);
     setDuration(0);
 
-    return () => {
-      if (playerRef.current && playerRef.current.destroy) {
-        playerRef.current.destroy();
-        playerRef.current = null;
-      }
-    };
+  
   }, [youtubeEnabled, playerReady, currentSong?.id]);
 
   useEffect(() => {
