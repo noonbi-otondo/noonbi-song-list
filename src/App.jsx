@@ -270,13 +270,14 @@ export default function App() {
   }, [currentSong?.id]);
 
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const isMobile = typeof window !== "undefined" ? window.innerWidth <= 768 : false;
 
   const styles = {
     page: {
       minHeight: "100vh",
       background: "#09090b",
       color: "white",
-      padding: 24,
+      padding: isMobile ? 12 : 24,
       fontFamily: "Pretendard, Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
     },
     wrap: { maxWidth: 1180, margin: "0 auto" },
@@ -288,33 +289,87 @@ export default function App() {
       marginBottom: 24,
       flexWrap: "wrap",
     },
-    title: { fontSize: 36, fontWeight: 800, margin: 0 },
+    title: { fontSize: isMobile ? 28 : 36, fontWeight: 800, margin: 0 },
     desc: { color: "#a1a1aa", marginTop: 8 },
     tabs: { display: "flex", gap: 8, background: "#18181b", padding: 6, borderRadius: 18 },
     tabButton: { border: 0, borderRadius: 14, padding: "10px 16px", color: "white", cursor: "pointer" },
-    grid: { display: "grid", gridTemplateColumns: "minmax(0, 1.5fr) minmax(300px, 1fr)", gap: 24 },
-    card: { background: "#18181b", border: "1px solid #27272a", borderRadius: 24, padding: 20, boxShadow: "0 18px 50px rgba(0,0,0,0.35)" },
-    inputRow: { display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" },
+    grid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.5fr) minmax(300px, 1fr)",
+      gap: isMobile ? 14 : 24,
+    },
+    card: {
+      background: "#18181b",
+      border: "1px solid #27272a",
+      borderRadius: isMobile ? 18 : 24,
+      padding: isMobile ? 14 : 20,
+      boxShadow: "0 18px 50px rgba(0,0,0,0.35)",
+    },
+    inputRow: {
+      display: "flex",
+      gap: 10,
+      marginBottom: 16,
+      flexWrap: "wrap",
+      flexDirection: isMobile ? "column" : "row",
+    },
     input: { width: "100%", border: "1px solid #3f3f46", background: "#09090b", color: "white", borderRadius: 12, padding: "12px 14px", outline: "none" },
     button: { border: 0, borderRadius: 12, background: "#d946ef", color: "white", padding: "12px 16px", cursor: "pointer", fontWeight: 700 },
     secondaryButton: { border: "1px solid #3f3f46", borderRadius: 12, background: "#09090b", color: "white", padding: "12px 16px", cursor: "pointer", fontWeight: 700 },
-    chatBox: { height: 460, overflowY: "auto", background: "#09090b", border: "1px solid #27272a", borderRadius: 18, padding: 16 },
+    chatBox: {
+      height: isMobile ? 360 : 460,
+      overflowY: "auto",
+      background: "#09090b",
+      border: "1px solid #27272a",
+      borderRadius: 18,
+      padding: isMobile ? 10 : 16,
+    },
     chatItem: { background: "#18181b", borderRadius: 16, padding: 14, marginBottom: 10 },
     name: { color: "#f0abfc", fontWeight: 800, fontSize: 14, marginBottom: 4 },
-    video: { aspectRatio: "16 / 9", background: "black", borderRadius: 20, overflow: "hidden", border: "1px solid #27272a", display: "flex", alignItems: "center", justifyContent: "center", color: "#71717a" },
+    video: {
+      aspectRatio: "16 / 9",
+      width: "100%",
+      minHeight: isMobile ? 190 : 320,
+      background: "black",
+      borderRadius: isMobile ? 16 : 20,
+      overflow: "hidden",
+      border: "1px solid #27272a",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: "#71717a",
+      textAlign: "center",
+    },
     progressWrap: { marginTop: 14, background: "#09090b", border: "1px solid #27272a", borderRadius: 16, padding: 14 },
     progressBar: { height: 10, background: "#27272a", borderRadius: 999, overflow: "hidden", marginTop: 10 },
     progressFill: { height: "100%", width: `${progress}%`, background: "#d946ef", borderRadius: 999, transition: "width 0.25s linear" },
-    songItem: { background: "#09090b", borderRadius: 16, padding: 14, marginTop: 10, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" },
+    songItem: {
+      background: "#09090b",
+      borderRadius: 16,
+      padding: isMobile ? 12 : 14,
+      marginTop: 10,
+      display: "flex",
+      justifyContent: "space-between",
+      gap: 12,
+      alignItems: "center",
+      flexWrap: "wrap",
+      wordBreak: "break-word",
+    },
     small: { color: "#a1a1aa", fontSize: 14 },
     badge: { display: "inline-block", borderRadius: 999, padding: "5px 9px", fontSize: 13, background: connected ? "#14532d" : "#7f1d1d", color: connected ? "#bbf7d0" : "#fecaca" },
-    thumb: { width: 72, height: 54, objectFit: "cover", borderRadius: 10, background: "#27272a" },
+    thumb: {
+      width: isMobile ? 64 : 72,
+      height: isMobile ? 48 : 54,
+      objectFit: "cover",
+      borderRadius: 10,
+      background: "#27272a",
+      flexShrink: 0,
+    },
   };
 
   return (
     <div style={styles.page}>
       <div style={styles.wrap}>
-        <header style={styles.header}>
+        <header style={{ ...styles.header, flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center" }}>
           <div>
             <h1 style={styles.title}>능능 SongRoom</h1>
             <div style={styles.desc}>검색어를 입력하면 유튜브 최상단 영상을 예약하고, 모두에게 실시간 동기화됩니다.</div>
@@ -323,9 +378,9 @@ export default function App() {
             </div>
           </div>
 
-          <div style={styles.tabs}>
+          <div style={{ ...styles.tabs, width: isMobile ? "100%" : "auto", justifyContent: isMobile ? "center" : "flex-start" }}>
             {["chat", "player"].map((key) => (
-              <button key={key} type="button" onClick={() => setTab(key)} style={{ ...styles.tabButton, background: tab === key ? "#d946ef" : "transparent" }}>
+              <button key={key} type="button" onClick={() => setTab(key)} style={{ ...styles.tabButton, flex: isMobile ? 1 : "initial", background: tab === key ? "#d946ef" : "transparent" }}>
                 {key === "chat" ? "채팅" : "플레이어"}
               </button>
             ))}
@@ -334,8 +389,7 @@ export default function App() {
 
         <div style={styles.grid}>
           <main>
-            {tab === "chat" && (
-              <section style={styles.card}>
+            <section style={{ ...styles.card, display: tab === "chat" ? "block" : "none" }}>
                 <div style={{ ...styles.songItem, display: "block", marginTop: 0, marginBottom: 16 }}>
                   <div style={styles.small}>초대 링크</div>
                   <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
@@ -345,9 +399,9 @@ export default function App() {
                 </div>
 
                 <div style={styles.inputRow}>
-                  <input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="닉네임" style={{ ...styles.input, maxWidth: 140 }} />
-                  <input value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }} placeholder="유튜브 링크 또는 검색어 입력 예: 연예인" style={{ ...styles.input, flex: 1, minWidth: 260 }} />
-                  <button type="button" onClick={sendMessage} style={styles.button}>신청</button>
+                  <input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="닉네임" style={{ ...styles.input, maxWidth: isMobile ? "100%" : 140, boxSizing: "border-box" }} />
+                  <input value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }} placeholder="유튜브 링크 또는 검색어 입력 예: 연예인" style={{ ...styles.input, flex: 1, minWidth: isMobile ? "100%" : 260, boxSizing: "border-box" }} />
+                  <button type="button" onClick={sendMessage} style={{ ...styles.button, width: isMobile ? "100%" : "auto" }}>신청</button>
                 </div>
 
                 <div style={styles.chatBox}>
@@ -359,16 +413,14 @@ export default function App() {
                   ))}
                 </div>
               </section>
-            )}
 
-            {tab === "player" && (
-              <section style={styles.card}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+            <section style={{ ...styles.card, display: tab === "player" ? "block" : "none" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 16, flexDirection: isMobile ? "column" : "row" }}>
                   <div>
-                    <h2 style={{ margin: 0, fontSize: 28 }}>현재 재생</h2>
+                    <h2 style={{ margin: 0, fontSize: isMobile ? 24 : 28 }}>현재 재생</h2>
                     <p style={styles.small}>영상이 끝나면 다음 예약곡으로 넘어갑니다.</p>
                   </div>
-                  <button type="button" onClick={skipSong} style={styles.button}>다음 곡</button>
+                  <button type="button" onClick={skipSong} style={{ ...styles.button, width: isMobile ? "100%" : "auto" }}>다음 곡</button>
                 </div>
 
                 <div style={styles.video}>
@@ -399,12 +451,11 @@ export default function App() {
 
                 <div style={{ ...styles.songItem, display: "block" }}>
                   <div style={styles.small}>곡 정보</div>
-                  <h3 style={{ margin: "6px 0", fontSize: 22 }}>{currentSong ? currentSong.title : "대기 중"}</h3>
+                  <h3 style={{ margin: "6px 0", fontSize: isMobile ? 18 : 22, wordBreak: "keep-all" }}>{currentSong ? currentSong.title : "대기 중"}</h3>
                   <div style={styles.small}>신청자: {currentSong ? currentSong.requestedBy : "-"}</div>
                   {currentSong?.channelTitle && <div style={styles.small}>채널: {currentSong.channelTitle}</div>}
                 </div>
               </section>
-            )}
           </main>
 
           <aside>
