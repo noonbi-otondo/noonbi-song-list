@@ -31,6 +31,7 @@ export default function App() {
   const playerDivRef = useRef(null);
   const playerRef = useRef(null);
   const intervalRef = useRef(null);
+  const suppressEventRef = useRef(false);
 
   const inviteUrl = typeof window !== "undefined" ? window.location.href : "";
 
@@ -50,34 +51,48 @@ export default function App() {
     });
 
     socket.on("state", (state) => {
-      socket.on("forcePause", ({ currentTime }) => {
-  try {
-    if (playerRef.current) {
-      playerRef.current.pauseVideo();
-      playerRef.current.seekTo(currentTime, true);
-    }
-  } catch {}
-});
-
-socket.on("forcePlay", ({ currentTime }) => {
-  socket.on("forceSeek", ({ currentTime }) => {
-  try {
-    if (playerRef.current) {
-      playerRef.current.seekTo(currentTime, true);
-    }
-  } catch {}
-});
-  try {
-    if (playerRef.current) {
-      playerRef.current.seekTo(currentTime, true);
-      playerRef.current.playVideo();
-    }
-  } catch {}
-});
       setQueue(state.queue || []);
       setHistory(state.history || []);
       setCurrentSong(state.currentSong || null);
       setChat(state.chat || []);
+    });
+
+    socket.on("forcePause", ({ currentTime }) => {
+      try {
+        if (playerRef.current) {
+          suppressEventRef.current = true;
+          playerRef.current.seekTo(currentTime || 0, true);
+          playerRef.current.pauseVideo();
+          setTimeout(() => {
+            suppressEventRef.current = false;
+          }, 800);
+        }
+      } catch {}
+    });
+
+    socket.on("forcePlay", ({ currentTime }) => {
+      try {
+        if (playerRef.current) {
+          suppressEventRef.current = true;
+          playerRef.current.seekTo(currentTime || 0, true);
+          playerRef.current.playVideo();
+          setTimeout(() => {
+            suppressEventRef.current = false;
+          }, 800);
+        }
+      } catch {}
+    });
+
+    socket.on("forceSeek", ({ currentTime }) => {
+      try {
+        if (playerRef.current) {
+          suppressEventRef.current = true;
+          playerRef.current.seekTo(currentTime || 0, true);
+          setTimeout(() => {
+            suppressEventRef.current = false;
+          }, 800);
+        }
+      } catch {}
     });
 
     return () => {
@@ -137,34 +152,38 @@ socket.on("forcePlay", ({ currentTime }) => {
   };
 
   useEffect(() => {
-    if (!youtubeEnabled || !playerReady || !currentSong || !currentSong.videoId || !playerDivRef.current) return;
+    if (!youtubeEnabled || !playerReady || !currentSong || !currentSong.videoId || !playerDivRef.current) {
+      return;
+    }
+
     if (playerRef.current && currentSong?.videoId) {
-  const currentVideoData = playerRef.current.getVideoData?.();
-  const currentVideoId = currentVideoData?.video_id;
+      const currentVideoData = playerRef.current.getVideoData?.();
+      const currentVideoId = currentVideoData?.video_id;
 
-  if (currentVideoId !== currentSong.videoId) {
-    playerRef.current.loadVideoById(currentSong.videoId);
-  }
+      if (currentVideoId !== currentSong.videoId) {
+        playerRef.current.loadVideoById(currentSong.videoId);
+      }
 
-  if (currentSong?.startedAt) {
-    const elapsed = (Date.now() - currentSong.startedAt) / 1000;
+      if (currentSong?.startedAt) {
+        const elapsed = (Date.now() - currentSong.startedAt) / 1000;
 
-    setTimeout(() => {
-      try {
-        const now = playerRef.current.getCurrentTime?.() || 0;
-        const diff = Math.abs(now - elapsed);
+        setTimeout(() => {
+          try {
+            const now = playerRef.current.getCurrentTime?.() || 0;
+            const diff = Math.abs(now - elapsed);
 
-        if (diff > 2) {
-          playerRef.current.seekTo(elapsed, true);
-        }
+            if (diff > 2) {
+              playerRef.current.seekTo(elapsed, true);
+            }
 
-        playerRef.current.playVideo();
-      } catch {}
-    }, 500);
-  }
+            playerRef.current.playVideo();
+          } catch {}
+        }, 500);
+      }
 
-  return;
-}
+      return;
+    }
+
     playerRef.current = new window.YT.Player(playerDivRef.current, {
       videoId: currentSong.videoId,
       playerVars: {
@@ -172,62 +191,63 @@ socket.on("forcePlay", ({ currentTime }) => {
         playsinline: 1,
       },
       events: {
-  onReady: (event) => {
-    const total = event.target.getDuration() || 0;
+        onReady: (event) => {
+          const total = event.target.getDuration() || 0;
 
-    setDuration(total);
-    setPlayerState("재생 준비 완료");
+          setDuration(total);
+          setPlayerState("재생 준비 완료");
 
-    if (currentSong?.startedAt) {
-      const elapsed = (Date.now() - currentSong.startedAt) / 1000;
+          if (currentSong?.startedAt) {
+            const elapsed = (Date.now() - currentSong.startedAt) / 1000;
 
-      if (elapsed > 0 && elapsed < total) {
-        event.target.seekTo(elapsed, true);
-      }
-    }
+            if (elapsed > 0 && elapsed < total) {
+              event.target.seekTo(elapsed, true);
+            }
+          }
 
-    event.target.playVideo();
-  },
+          event.target.playVideo();
+        },
 
-  onStateChange: (event) => {
-    const YTState = window.YT.PlayerState;
+        onStateChange: (event) => {
+          const YTState = window.YT.PlayerState;
 
-    if (event.data === YTState.PLAYING) {
-      setPlayerState("재생 중");
+          if (event.data === YTState.PLAYING) {
+            setPlayerState("재생 중");
 
-      if (socketRef.current) {
-        socketRef.current.emit("resumeSong", {
-          currentTime: event.target.getCurrentTime(),
-        });
-      }
-    }
+            if (!suppressEventRef.current && socketRef.current) {
+              socketRef.current.emit("resumeSong", {
+                currentTime: event.target.getCurrentTime(),
+              });
+            }
+          }
 
-    if (event.data === YTState.PAUSED) {
-      setPlayerState("일시정지");
+          if (event.data === YTState.PAUSED) {
+            setPlayerState("일시정지");
 
-      if (socketRef.current) {
-        socketRef.current.emit("pauseSong", {
-          currentTime: event.target.getCurrentTime(),
-        });
-      }
-    }
+            if (!suppressEventRef.current && socketRef.current) {
+              socketRef.current.emit("pauseSong", {
+                currentTime: event.target.getCurrentTime(),
+              });
+            }
+          }
 
-    if (event.data === YTState.BUFFERING) setPlayerState("버퍼링 중");
+          if (event.data === YTState.BUFFERING) {
+            setPlayerState("버퍼링 중");
+          }
 
-    if (event.data === YTState.ENDED) {
-      setPlayerState("재생 완료");
+          if (event.data === YTState.ENDED) {
+            setPlayerState("재생 완료");
 
-      if (socketRef.current) {
-        socketRef.current.emit("songEnded");
-      }
-    }
-  },
-},
+            if (socketRef.current) {
+              socketRef.current.emit("songEnded");
+            }
+          }
+        },
+      },
+    });
 
     setCurrentTime(0);
     setDuration(0);
-
-  
   }, [youtubeEnabled, playerReady, currentSong?.id]);
 
   useEffect(() => {
@@ -326,7 +346,7 @@ socket.on("forcePlay", ({ currentTime }) => {
 
                 <div style={styles.inputRow}>
                   <input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="닉네임" style={{ ...styles.input, maxWidth: 140 }} />
-                  <input value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }} placeholder='유튜브 링크 또는 검색어 입력 예: 연예인' style={{ ...styles.input, flex: 1, minWidth: 260 }} />
+                  <input value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }} placeholder="유튜브 링크 또는 검색어 입력 예: 연예인" style={{ ...styles.input, flex: 1, minWidth: 260 }} />
                   <button type="button" onClick={sendMessage} style={styles.button}>신청</button>
                 </div>
 
