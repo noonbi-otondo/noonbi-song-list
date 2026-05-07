@@ -12,7 +12,11 @@ function formatTime(seconds) {
 
 function getIsMobile() {
   if (typeof navigator === "undefined") return false;
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  const ua = navigator.userAgent || "";
+  const touch = navigator.maxTouchPoints > 1;
+
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || touch;
 }
 
 export default function App() {
@@ -73,7 +77,7 @@ export default function App() {
           playerRef.current.pauseVideo();
           setTimeout(() => {
             suppressEventRef.current = false;
-          }, 800);
+          }, 1000);
         }
       } catch {}
     });
@@ -86,7 +90,7 @@ export default function App() {
           playerRef.current.playVideo();
           setTimeout(() => {
             suppressEventRef.current = false;
-          }, 800);
+          }, 1000);
         }
       } catch {}
     });
@@ -98,7 +102,7 @@ export default function App() {
           playerRef.current.seekTo(currentTime || 0, true);
           setTimeout(() => {
             suppressEventRef.current = false;
-          }, 800);
+          }, 1000);
         }
       } catch {}
     });
@@ -188,7 +192,7 @@ export default function App() {
       return;
     }
 
-    if (playerRef.current && currentSong?.videoId) {
+    if (playerRef.current && currentSong.videoId) {
       const currentVideoData = playerRef.current.getVideoData?.();
       const currentVideoId = currentVideoData?.video_id;
 
@@ -196,7 +200,7 @@ export default function App() {
         playerRef.current.loadVideoById(currentSong.videoId);
       }
 
-      if (currentSong?.startedAt) {
+      if (currentSong.startedAt) {
         const elapsed = (Date.now() - currentSong.startedAt) / 1000;
 
         setTimeout(() => {
@@ -229,7 +233,7 @@ export default function App() {
           setDuration(total);
           setPlayerState("재생 준비 완료");
 
-          if (currentSong?.startedAt) {
+          if (currentSong.startedAt) {
             const elapsed = (Date.now() - currentSong.startedAt) / 1000;
 
             if (elapsed > 0 && elapsed < total) {
@@ -246,7 +250,7 @@ export default function App() {
           if (event.data === YTState.PLAYING) {
             setPlayerState("재생 중");
 
-            if (!suppressEventRef.current && socketRef.current) {
+            if (!isMobileRef.current && !suppressEventRef.current && socketRef.current) {
               socketRef.current.emit("resumeSong", {
                 currentTime: event.target.getCurrentTime(),
               });
@@ -276,7 +280,7 @@ export default function App() {
           if (event.data === YTState.ENDED) {
             setPlayerState("재생 완료");
 
-            if (socketRef.current) {
+            if (!isMobileRef.current && socketRef.current) {
               socketRef.current.emit("songEnded");
             }
           }
@@ -338,7 +342,13 @@ export default function App() {
       width: isMobile ? "100%" : "auto",
       justifyContent: isMobile ? "center" : "flex-start",
     },
-    tabButton: { border: 0, borderRadius: 14, padding: "10px 16px", color: "white", cursor: "pointer" },
+    tabButton: {
+      border: 0,
+      borderRadius: 14,
+      padding: "10px 16px",
+      color: "white",
+      cursor: "pointer",
+    },
     grid: {
       display: "grid",
       gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.5fr) minmax(300px, 1fr)",
@@ -368,8 +378,24 @@ export default function App() {
       outline: "none",
       boxSizing: "border-box",
     },
-    button: { border: 0, borderRadius: 12, background: "#d946ef", color: "white", padding: "12px 16px", cursor: "pointer", fontWeight: 700 },
-    secondaryButton: { border: "1px solid #3f3f46", borderRadius: 12, background: "#09090b", color: "white", padding: "12px 16px", cursor: "pointer", fontWeight: 700 },
+    button: {
+      border: 0,
+      borderRadius: 12,
+      background: "#d946ef",
+      color: "white",
+      padding: "12px 16px",
+      cursor: "pointer",
+      fontWeight: 700,
+    },
+    secondaryButton: {
+      border: "1px solid #3f3f46",
+      borderRadius: 12,
+      background: "#09090b",
+      color: "white",
+      padding: "12px 16px",
+      cursor: "pointer",
+      fontWeight: 700,
+    },
     chatBox: {
       height: isMobile ? 360 : 460,
       overflowY: "auto",
@@ -378,7 +404,13 @@ export default function App() {
       borderRadius: 18,
       padding: isMobile ? 10 : 16,
     },
-    chatItem: { background: "#18181b", borderRadius: 16, padding: 14, marginBottom: 10, wordBreak: "break-word" },
+    chatItem: {
+      background: "#18181b",
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 10,
+      wordBreak: "break-word",
+    },
     name: { color: "#f0abfc", fontWeight: 800, fontSize: 14, marginBottom: 4 },
     video: {
       aspectRatio: "16 / 9",
@@ -394,9 +426,27 @@ export default function App() {
       color: "#71717a",
       textAlign: "center",
     },
-    progressWrap: { marginTop: 14, background: "#09090b", border: "1px solid #27272a", borderRadius: 16, padding: 14 },
-    progressBar: { height: 10, background: "#27272a", borderRadius: 999, overflow: "hidden", marginTop: 10 },
-    progressFill: { height: "100%", width: `${progress}%`, background: "#d946ef", borderRadius: 999, transition: "width 0.25s linear" },
+    progressWrap: {
+      marginTop: 14,
+      background: "#09090b",
+      border: "1px solid #27272a",
+      borderRadius: 16,
+      padding: 14,
+    },
+    progressBar: {
+      height: 10,
+      background: "#27272a",
+      borderRadius: 999,
+      overflow: "hidden",
+      marginTop: 10,
+    },
+    progressFill: {
+      height: "100%",
+      width: `${progress}%`,
+      background: "#d946ef",
+      borderRadius: 999,
+      transition: "width 0.25s linear",
+    },
     songItem: {
       background: "#09090b",
       borderRadius: 16,
@@ -410,7 +460,14 @@ export default function App() {
       wordBreak: "break-word",
     },
     small: { color: "#a1a1aa", fontSize: 14 },
-    badge: { display: "inline-block", borderRadius: 999, padding: "5px 9px", fontSize: 13, background: connected ? "#14532d" : "#7f1d1d", color: connected ? "#bbf7d0" : "#fecaca" },
+    badge: {
+      display: "inline-block",
+      borderRadius: 999,
+      padding: "5px 9px",
+      fontSize: 13,
+      background: connected ? "#14532d" : "#7f1d1d",
+      color: connected ? "#bbf7d0" : "#fecaca",
+    },
     thumb: {
       width: isMobile ? 64 : 72,
       height: isMobile ? 48 : 54,
@@ -427,7 +484,9 @@ export default function App() {
         <header style={styles.header}>
           <div>
             <h1 style={styles.title}>능능 SongRoom</h1>
-            <div style={styles.desc}>검색어를 입력하면 유튜브 최상단 영상을 예약하고, 모두에게 실시간 동기화됩니다.</div>
+            <div style={styles.desc}>
+              검색어를 입력하면 유튜브 최상단 영상을 예약하고, 모두에게 실시간 동기화됩니다.
+            </div>
             <div style={{ marginTop: 10 }}>
               <span style={styles.badge}>{connected ? "서버 연결됨" : "서버 연결 안 됨"}</span>
             </div>
@@ -456,9 +515,25 @@ export default function App() {
             <section style={{ ...styles.card, display: tab === "chat" ? "block" : "none" }}>
               <div style={{ ...styles.songItem, display: "block", marginTop: 0, marginBottom: 16 }}>
                 <div style={styles.small}>초대 링크</div>
-                <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap", flexDirection: isMobile ? "column" : "row" }}>
-                  <input value={inviteUrl} readOnly style={{ ...styles.input, flex: 1, minWidth: isMobile ? "100%" : 240 }} />
-                  <button type="button" onClick={copyInvite} style={{ ...styles.secondaryButton, width: isMobile ? "100%" : "auto" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    marginTop: 8,
+                    flexWrap: "wrap",
+                    flexDirection: isMobile ? "column" : "row",
+                  }}
+                >
+                  <input
+                    value={inviteUrl}
+                    readOnly
+                    style={{ ...styles.input, flex: 1, minWidth: isMobile ? "100%" : 240 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={copyInvite}
+                    style={{ ...styles.secondaryButton, width: isMobile ? "100%" : "auto" }}
+                  >
                     {inviteCopied ? "복사됨" : "초대 링크 복사"}
                   </button>
                 </div>
@@ -480,7 +555,11 @@ export default function App() {
                   placeholder="유튜브 링크 또는 검색어 입력 예: 연예인"
                   style={{ ...styles.input, flex: 1, minWidth: isMobile ? "100%" : 260 }}
                 />
-                <button type="button" onClick={sendMessage} style={{ ...styles.button, width: isMobile ? "100%" : "auto" }}>
+                <button
+                  type="button"
+                  onClick={sendMessage}
+                  style={{ ...styles.button, width: isMobile ? "100%" : "auto" }}
+                >
                   신청
                 </button>
               </div>
@@ -496,12 +575,24 @@ export default function App() {
             </section>
 
             <section style={{ ...styles.card, display: tab === "player" ? "block" : "none" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 16, flexDirection: isMobile ? "column" : "row" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  marginBottom: 16,
+                  flexDirection: isMobile ? "column" : "row",
+                }}
+              >
                 <div>
                   <h2 style={{ margin: 0, fontSize: isMobile ? 24 : 28 }}>현재 재생</h2>
                   <p style={styles.small}>영상이 끝나면 다음 예약곡으로 넘어갑니다.</p>
                 </div>
-                <button type="button" onClick={skipSong} style={{ ...styles.button, width: isMobile ? "100%" : "auto" }}>
+                <button
+                  type="button"
+                  onClick={skipSong}
+                  style={{ ...styles.button, width: isMobile ? "100%" : "auto" }}
+                >
                   다음 곡
                 </button>
               </div>
@@ -530,7 +621,9 @@ export default function App() {
               <div style={styles.progressWrap}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <strong>{playerState}</strong>
-                  <span style={styles.small}>{formatTime(currentTime)} / {formatTime(duration)}</span>
+                  <span style={styles.small}>
+                    {formatTime(currentTime)} / {formatTime(duration)}
+                  </span>
                 </div>
                 <div style={styles.progressBar}>
                   <div style={styles.progressFill} />
@@ -546,7 +639,7 @@ export default function App() {
                 {currentSong?.channelTitle && <div style={styles.small}>채널: {currentSong.channelTitle}</div>}
                 {isMobileRef.current && (
                   <div style={{ ...styles.small, marginTop: 8 }}>
-                    모바일에서는 일시정지해도 전체 방 재생은 멈추지 않습니다.
+                    모바일에서는 일시정지/슬립이 전체 방 재생에 영향을 주지 않습니다.
                   </div>
                 )}
               </div>
@@ -563,7 +656,9 @@ export default function App() {
                   <div key={song.id} style={styles.songItem}>
                     {song.thumbnail && <img src={song.thumbnail} alt="" style={styles.thumb} />}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <strong>{index + 1}. {song.title}</strong>
+                      <strong>
+                        {index + 1}. {song.title}
+                      </strong>
                       <div style={styles.small}>by {song.requestedBy}</div>
                     </div>
                   </div>
