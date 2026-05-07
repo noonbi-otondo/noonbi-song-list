@@ -50,6 +50,30 @@ export default function App() {
     });
 
     socket.on("state", (state) => {
+      socket.on("forcePause", ({ currentTime }) => {
+  try {
+    if (playerRef.current) {
+      playerRef.current.pauseVideo();
+      playerRef.current.seekTo(currentTime, true);
+    }
+  } catch {}
+});
+
+socket.on("forcePlay", ({ currentTime }) => {
+  socket.on("forceSeek", ({ currentTime }) => {
+  try {
+    if (playerRef.current) {
+      playerRef.current.seekTo(currentTime, true);
+    }
+  } catch {}
+});
+  try {
+    if (playerRef.current) {
+      playerRef.current.seekTo(currentTime, true);
+      playerRef.current.playVideo();
+    }
+  } catch {}
+});
       setQueue(state.queue || []);
       setHistory(state.history || []);
       setCurrentSong(state.currentSong || null);
@@ -148,36 +172,57 @@ export default function App() {
         playsinline: 1,
       },
       events: {
-        onReady: (event) => {
-  const total = event.target.getDuration() || 0;
+  onReady: (event) => {
+    const total = event.target.getDuration() || 0;
 
-  setDuration(total);
-  setPlayerState("재생 준비 완료");
+    setDuration(total);
+    setPlayerState("재생 준비 완료");
 
-  if (currentSong?.startedAt) {
-    const elapsed = (Date.now() - currentSong.startedAt) / 1000;
+    if (currentSong?.startedAt) {
+      const elapsed = (Date.now() - currentSong.startedAt) / 1000;
 
-    if (elapsed > 0 && elapsed < total) {
-      event.target.seekTo(elapsed, true);
+      if (elapsed > 0 && elapsed < total) {
+        event.target.seekTo(elapsed, true);
+      }
     }
-  }
 
-  event.target.playVideo();
+    event.target.playVideo();
+  },
+
+  onStateChange: (event) => {
+    const YTState = window.YT.PlayerState;
+
+    if (event.data === YTState.PLAYING) {
+      setPlayerState("재생 중");
+
+      if (socketRef.current) {
+        socketRef.current.emit("resumeSong", {
+          currentTime: event.target.getCurrentTime(),
+        });
+      }
+    }
+
+    if (event.data === YTState.PAUSED) {
+      setPlayerState("일시정지");
+
+      if (socketRef.current) {
+        socketRef.current.emit("pauseSong", {
+          currentTime: event.target.getCurrentTime(),
+        });
+      }
+    }
+
+    if (event.data === YTState.BUFFERING) setPlayerState("버퍼링 중");
+
+    if (event.data === YTState.ENDED) {
+      setPlayerState("재생 완료");
+
+      if (socketRef.current) {
+        socketRef.current.emit("songEnded");
+      }
+    }
+  },
 },
-        onStateChange: (event) => {
-          const YTState = window.YT.PlayerState;
-          if (event.data === YTState.PLAYING) setPlayerState("재생 중");
-          if (event.data === YTState.PAUSED) setPlayerState("일시정지");
-          if (event.data === YTState.BUFFERING) setPlayerState("버퍼링 중");
-          if (event.data === YTState.ENDED) {
-            setPlayerState("재생 완료");
-            if (socketRef.current) {
-              socketRef.current.emit("songEnded");
-            }
-          }
-        },
-      },
-    });
 
     setCurrentTime(0);
     setDuration(0);
