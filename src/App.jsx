@@ -10,6 +10,11 @@ function formatTime(seconds) {
   return `${min}:${String(sec).padStart(2, "0")}`;
 }
 
+function getIsMobile() {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 export default function App() {
   const [tab, setTab] = useState("chat");
   const [nickname, setNickname] = useState("경모");
@@ -32,8 +37,11 @@ export default function App() {
   const playerRef = useRef(null);
   const intervalRef = useRef(null);
   const suppressEventRef = useRef(false);
+  const ignorePauseRef = useRef(false);
+  const isMobileRef = useRef(getIsMobile());
 
   const inviteUrl = typeof window !== "undefined" ? window.location.href : "";
+  const isMobile = typeof window !== "undefined" ? window.innerWidth <= 768 : false;
 
   useEffect(() => {
     const socket = io(SERVER_URL, {
@@ -97,6 +105,30 @@ export default function App() {
 
     return () => {
       socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      ignorePauseRef.current = document.hidden;
+    };
+
+    const handlePageHide = () => {
+      ignorePauseRef.current = true;
+    };
+
+    const handlePageShow = () => {
+      ignorePauseRef.current = false;
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("pageshow", handlePageShow);
     };
   }, []);
 
@@ -224,7 +256,13 @@ export default function App() {
           if (event.data === YTState.PAUSED) {
             setPlayerState("일시정지");
 
-            if (!suppressEventRef.current && socketRef.current) {
+            if (
+              !isMobileRef.current &&
+              !ignorePauseRef.current &&
+              !document.hidden &&
+              !suppressEventRef.current &&
+              socketRef.current
+            ) {
               socketRef.current.emit("pauseSong", {
                 currentTime: event.target.getCurrentTime(),
               });
@@ -270,7 +308,6 @@ export default function App() {
   }, [currentSong?.id]);
 
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-  const isMobile = typeof window !== "undefined" ? window.innerWidth <= 768 : false;
 
   const styles = {
     page: {
@@ -285,13 +322,22 @@ export default function App() {
       display: "flex",
       justifyContent: "space-between",
       gap: 16,
-      alignItems: "center",
+      alignItems: isMobile ? "stretch" : "center",
       marginBottom: 24,
       flexWrap: "wrap",
+      flexDirection: isMobile ? "column" : "row",
     },
     title: { fontSize: isMobile ? 28 : 36, fontWeight: 800, margin: 0 },
     desc: { color: "#a1a1aa", marginTop: 8 },
-    tabs: { display: "flex", gap: 8, background: "#18181b", padding: 6, borderRadius: 18 },
+    tabs: {
+      display: "flex",
+      gap: 8,
+      background: "#18181b",
+      padding: 6,
+      borderRadius: 18,
+      width: isMobile ? "100%" : "auto",
+      justifyContent: isMobile ? "center" : "flex-start",
+    },
     tabButton: { border: 0, borderRadius: 14, padding: "10px 16px", color: "white", cursor: "pointer" },
     grid: {
       display: "grid",
@@ -312,7 +358,16 @@ export default function App() {
       flexWrap: "wrap",
       flexDirection: isMobile ? "column" : "row",
     },
-    input: { width: "100%", border: "1px solid #3f3f46", background: "#09090b", color: "white", borderRadius: 12, padding: "12px 14px", outline: "none" },
+    input: {
+      width: "100%",
+      border: "1px solid #3f3f46",
+      background: "#09090b",
+      color: "white",
+      borderRadius: 12,
+      padding: "12px 14px",
+      outline: "none",
+      boxSizing: "border-box",
+    },
     button: { border: 0, borderRadius: 12, background: "#d946ef", color: "white", padding: "12px 16px", cursor: "pointer", fontWeight: 700 },
     secondaryButton: { border: "1px solid #3f3f46", borderRadius: 12, background: "#09090b", color: "white", padding: "12px 16px", cursor: "pointer", fontWeight: 700 },
     chatBox: {
@@ -323,7 +378,7 @@ export default function App() {
       borderRadius: 18,
       padding: isMobile ? 10 : 16,
     },
-    chatItem: { background: "#18181b", borderRadius: 16, padding: 14, marginBottom: 10 },
+    chatItem: { background: "#18181b", borderRadius: 16, padding: 14, marginBottom: 10, wordBreak: "break-word" },
     name: { color: "#f0abfc", fontWeight: 800, fontSize: 14, marginBottom: 4 },
     video: {
       aspectRatio: "16 / 9",
@@ -369,7 +424,7 @@ export default function App() {
   return (
     <div style={styles.page}>
       <div style={styles.wrap}>
-        <header style={{ ...styles.header, flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center" }}>
+        <header style={styles.header}>
           <div>
             <h1 style={styles.title}>능능 SongRoom</h1>
             <div style={styles.desc}>검색어를 입력하면 유튜브 최상단 영상을 예약하고, 모두에게 실시간 동기화됩니다.</div>
@@ -378,9 +433,18 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ ...styles.tabs, width: isMobile ? "100%" : "auto", justifyContent: isMobile ? "center" : "flex-start" }}>
+          <div style={styles.tabs}>
             {["chat", "player"].map((key) => (
-              <button key={key} type="button" onClick={() => setTab(key)} style={{ ...styles.tabButton, flex: isMobile ? 1 : "initial", background: tab === key ? "#d946ef" : "transparent" }}>
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                style={{
+                  ...styles.tabButton,
+                  flex: isMobile ? 1 : "initial",
+                  background: tab === key ? "#d946ef" : "transparent",
+                }}
+              >
                 {key === "chat" ? "채팅" : "플레이어"}
               </button>
             ))}
@@ -390,97 +454,136 @@ export default function App() {
         <div style={styles.grid}>
           <main>
             <section style={{ ...styles.card, display: tab === "chat" ? "block" : "none" }}>
-                <div style={{ ...styles.songItem, display: "block", marginTop: 0, marginBottom: 16 }}>
-                  <div style={styles.small}>초대 링크</div>
-                  <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
-                    <input value={inviteUrl} readOnly style={{ ...styles.input, flex: 1, minWidth: 240 }} />
-                    <button type="button" onClick={copyInvite} style={styles.secondaryButton}>{inviteCopied ? "복사됨" : "초대 링크 복사"}</button>
+              <div style={{ ...styles.songItem, display: "block", marginTop: 0, marginBottom: 16 }}>
+                <div style={styles.small}>초대 링크</div>
+                <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap", flexDirection: isMobile ? "column" : "row" }}>
+                  <input value={inviteUrl} readOnly style={{ ...styles.input, flex: 1, minWidth: isMobile ? "100%" : 240 }} />
+                  <button type="button" onClick={copyInvite} style={{ ...styles.secondaryButton, width: isMobile ? "100%" : "auto" }}>
+                    {inviteCopied ? "복사됨" : "초대 링크 복사"}
+                  </button>
+                </div>
+              </div>
+
+              <div style={styles.inputRow}>
+                <input
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder="닉네임"
+                  style={{ ...styles.input, maxWidth: isMobile ? "100%" : 140 }}
+                />
+                <input
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") sendMessage();
+                  }}
+                  placeholder="유튜브 링크 또는 검색어 입력 예: 연예인"
+                  style={{ ...styles.input, flex: 1, minWidth: isMobile ? "100%" : 260 }}
+                />
+                <button type="button" onClick={sendMessage} style={{ ...styles.button, width: isMobile ? "100%" : "auto" }}>
+                  신청
+                </button>
+              </div>
+
+              <div style={styles.chatBox}>
+                {chat.map((item) => (
+                  <div key={item.id} style={styles.chatItem}>
+                    <div style={styles.name}>{item.user}</div>
+                    <div>{item.text}</div>
                   </div>
-                </div>
-
-                <div style={styles.inputRow}>
-                  <input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="닉네임" style={{ ...styles.input, maxWidth: isMobile ? "100%" : 140, boxSizing: "border-box" }} />
-                  <input value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }} placeholder="유튜브 링크 또는 검색어 입력 예: 연예인" style={{ ...styles.input, flex: 1, minWidth: isMobile ? "100%" : 260, boxSizing: "border-box" }} />
-                  <button type="button" onClick={sendMessage} style={{ ...styles.button, width: isMobile ? "100%" : "auto" }}>신청</button>
-                </div>
-
-                <div style={styles.chatBox}>
-                  {chat.map((item) => (
-                    <div key={item.id} style={styles.chatItem}>
-                      <div style={styles.name}>{item.user}</div>
-                      <div>{item.text}</div>
-                    </div>
-                  ))}
-                </div>
-              </section>
+                ))}
+              </div>
+            </section>
 
             <section style={{ ...styles.card, display: tab === "player" ? "block" : "none" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 16, flexDirection: isMobile ? "column" : "row" }}>
-                  <div>
-                    <h2 style={{ margin: 0, fontSize: isMobile ? 24 : 28 }}>현재 재생</h2>
-                    <p style={styles.small}>영상이 끝나면 다음 예약곡으로 넘어갑니다.</p>
-                  </div>
-                  <button type="button" onClick={skipSong} style={{ ...styles.button, width: isMobile ? "100%" : "auto" }}>다음 곡</button>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 16, flexDirection: isMobile ? "column" : "row" }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: isMobile ? 24 : 28 }}>현재 재생</h2>
+                  <p style={styles.small}>영상이 끝나면 다음 예약곡으로 넘어갑니다.</p>
                 </div>
+                <button type="button" onClick={skipSong} style={{ ...styles.button, width: isMobile ? "100%" : "auto" }}>
+                  다음 곡
+                </button>
+              </div>
 
-                <div style={styles.video}>
-                  {currentSong && currentSong.videoId ? (
-                    youtubeEnabled ? (
-                      <div ref={playerDivRef} style={{ width: "100%", height: "100%" }} />
-                    ) : (
-                      <div style={{ padding: 24, textAlign: "center" }}>
-                        <strong>YouTube 플레이어가 꺼져 있습니다.</strong>
-                        <br />
-                        처음 한 번만 버튼을 눌러 켜주세요.
-                        <br /><br />
-                        <button type="button" onClick={loadYouTubePlayer} style={styles.button}>YouTube 플레이어 켜기</button>
-                      </div>
-                    )
+              <div style={styles.video}>
+                {currentSong && currentSong.videoId ? (
+                  youtubeEnabled ? (
+                    <div ref={playerDivRef} style={{ width: "100%", height: "100%" }} />
                   ) : (
-                    <div>재생할 곡이 없습니다. 채팅에서 검색어나 유튜브 링크를 신청하세요.</div>
-                  )}
-                </div>
+                    <div style={{ padding: 24, textAlign: "center" }}>
+                      <strong>YouTube 플레이어가 꺼져 있습니다.</strong>
+                      <br />
+                      처음 한 번만 버튼을 눌러 켜주세요.
+                      <br />
+                      <br />
+                      <button type="button" onClick={loadYouTubePlayer} style={styles.button}>
+                        YouTube 플레이어 켜기
+                      </button>
+                    </div>
+                  )
+                ) : (
+                  <div style={{ padding: 16 }}>재생할 곡이 없습니다. 채팅에서 검색어나 유튜브 링크를 신청하세요.</div>
+                )}
+              </div>
 
-                <div style={styles.progressWrap}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                    <strong>{playerState}</strong>
-                    <span style={styles.small}>{formatTime(currentTime)} / {formatTime(duration)}</span>
+              <div style={styles.progressWrap}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <strong>{playerState}</strong>
+                  <span style={styles.small}>{formatTime(currentTime)} / {formatTime(duration)}</span>
+                </div>
+                <div style={styles.progressBar}>
+                  <div style={styles.progressFill} />
+                </div>
+              </div>
+
+              <div style={{ ...styles.songItem, display: "block" }}>
+                <div style={styles.small}>곡 정보</div>
+                <h3 style={{ margin: "6px 0", fontSize: isMobile ? 18 : 22, wordBreak: "keep-all" }}>
+                  {currentSong ? currentSong.title : "대기 중"}
+                </h3>
+                <div style={styles.small}>신청자: {currentSong ? currentSong.requestedBy : "-"}</div>
+                {currentSong?.channelTitle && <div style={styles.small}>채널: {currentSong.channelTitle}</div>}
+                {isMobileRef.current && (
+                  <div style={{ ...styles.small, marginTop: 8 }}>
+                    모바일에서는 일시정지해도 전체 방 재생은 멈추지 않습니다.
                   </div>
-                  <div style={styles.progressBar}><div style={styles.progressFill} /></div>
-                </div>
-
-                <div style={{ ...styles.songItem, display: "block" }}>
-                  <div style={styles.small}>곡 정보</div>
-                  <h3 style={{ margin: "6px 0", fontSize: isMobile ? 18 : 22, wordBreak: "keep-all" }}>{currentSong ? currentSong.title : "대기 중"}</h3>
-                  <div style={styles.small}>신청자: {currentSong ? currentSong.requestedBy : "-"}</div>
-                  {currentSong?.channelTitle && <div style={styles.small}>채널: {currentSong.channelTitle}</div>}
-                </div>
-              </section>
+                )}
+              </div>
+            </section>
           </main>
 
           <aside>
             <section style={styles.card}>
               <h2 style={{ marginTop: 0 }}>예약 리스트</h2>
-              {queue.length === 0 ? <p style={styles.small}>아직 예약된 곡이 없습니다.</p> : queue.map((song, index) => (
-                <div key={song.id} style={styles.songItem}>
-                  {song.thumbnail && <img src={song.thumbnail} alt="" style={styles.thumb} />}
-                  <div style={{ flex: 1 }}>
-                    <strong>{index + 1}. {song.title}</strong>
-                    <div style={styles.small}>by {song.requestedBy}</div>
+              {queue.length === 0 ? (
+                <p style={styles.small}>아직 예약된 곡이 없습니다.</p>
+              ) : (
+                queue.map((song, index) => (
+                  <div key={song.id} style={styles.songItem}>
+                    {song.thumbnail && <img src={song.thumbnail} alt="" style={styles.thumb} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <strong>{index + 1}. {song.title}</strong>
+                      <div style={styles.small}>by {song.requestedBy}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </section>
 
             <section style={{ ...styles.card, marginTop: 24 }}>
               <h2 style={{ marginTop: 0 }}>예약 히스토리</h2>
-              {history.length === 0 ? <p style={styles.small}>아직 재생 기록이 없습니다.</p> : history.slice(0, 10).map((song, index) => (
-                <div key={`${song.id}-${index}`} style={{ ...styles.songItem, display: "block" }}>
-                  <strong>{song.title}</strong>
-                  <div style={styles.small}>신청자: {song.requestedBy}</div>
-                  {song.skipped && <div style={styles.small}>스킵됨</div>}
-                </div>
-              ))}
+              {history.length === 0 ? (
+                <p style={styles.small}>아직 재생 기록이 없습니다.</p>
+              ) : (
+                history.slice(0, 10).map((song, index) => (
+                  <div key={`${song.id}-${index}`} style={{ ...styles.songItem, display: "block" }}>
+                    <strong>{song.title}</strong>
+                    <div style={styles.small}>신청자: {song.requestedBy}</div>
+                    {song.skipped && <div style={styles.small}>스킵됨</div>}
+                  </div>
+                ))
+              )}
             </section>
 
             <section style={{ ...styles.card, marginTop: 24 }}>
